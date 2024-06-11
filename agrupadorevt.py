@@ -36,10 +36,10 @@ def group_objects(points, filename):
 def descarte_objects(points, filename):
     print("descarte_objects", filename, points)
     
-    if len(points) < 2:
+    if len(points) < 1:
         return
     
-    pos1, pos2 = points[0], points[1]
+    pos1 = points[0]
 
     
         
@@ -71,6 +71,23 @@ def find_objects_on_screen(template):
 
     return points
 
+def find_objects_on_screen_to_group(template):
+    screen = pyautogui.screenshot()
+    screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
+
+    result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.7  # Ajuste conforme necessário
+    loc = np.where(result >= threshold)
+
+    points = []
+    template_height, template_width = template.shape[:2]
+    for pt in zip(*loc[::-1]):
+        center_pt = (pt[0] + template_width // 2, pt[1] + template_height // 2)
+        if all(distance(center_pt, existing_pt) >= 20 for existing_pt in points):
+            points.append(center_pt)
+
+    return points
+
 def click_center_of_screen():
     screen_width, screen_height = pyautogui.size()
 
@@ -85,22 +102,23 @@ def load_images_from_folder(folder):
 
 def process_images(images):
     for filename, template in images:
-        item_points = find_objects_on_screen(template)
-        while len(item_points) > 1:
+        item_points = find_objects_on_screen_to_group(template)
+        contador = 0
+        while len(item_points) > 1 & contador < 5:
             group_objects(item_points, filename)
-            item_points = find_objects_on_screen(template)
+            item_points = find_objects_on_screen_to_group(template)
+            contador += 1
 
 def process_descartes(descartes):
     for filename, template in descartes:
         descarte_points = find_objects_on_screen(template)
         contador = 0
-        while len(descarte_points) > 1 & contador < 10:
+        while len(descarte_points) >= 1 and contador < 3:
             descarte_objects(descarte_points, filename)
             descarte_points = find_objects_on_screen(template)
-            contador = contador + 1
+            contador += 1
 def main():
     itens = 'c://Workspace/agrupador/itens'
-    guarda = 'c://Workspace/agrupador/guarda'
     descarteImages = 'c://Workspace/agrupador/descarte'
     images = load_images_from_folder(itens)
     descartes = load_images_from_folder(descarteImages)
@@ -110,9 +128,16 @@ def main():
         process_images(images)
         process_descartes(descartes)
         
+        
+        pyautogui.press('g')
+        pyautogui.press('g')
+        pyautogui.press('insert')
         pyautogui.keyDown('alt')
+        time.sleep(0.5)
         pyautogui.press('tab')
         pyautogui.keyUp('alt')
+        
+        
 
         time.sleep(1)
         
